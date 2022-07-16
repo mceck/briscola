@@ -2,7 +2,6 @@ import 'dart:math';
 import 'dart:ui';
 
 import 'package:briscola/components/card.dart';
-import 'package:briscola/components/card_pile.dart';
 import 'package:briscola/components/enemy_hand.dart';
 import 'package:briscola/components/player_hand.dart';
 import 'package:briscola/components/plays.dart';
@@ -82,6 +81,10 @@ class TrumpGame extends FlameGame with HasTappableComponents {
 
     cardSet.forEach(stock.acquireCard);
 
+    startGame();
+  }
+
+  void startGame() {
     var hand = stock.giveCards();
     hand.forEach(playerHand.acquireCard);
 
@@ -99,13 +102,10 @@ class TrumpGame extends FlameGame with HasTappableComponents {
     final cards = [...playerPoints.cards, ...enemyPoints.cards];
     playerPoints.clearCards();
     enemyPoints.clearCards();
+    cards.shuffle();
     cards.forEach(stock.acquireCard);
 
-    var hand = stock.giveCards();
-    hand.forEach(playerHand.acquireCard);
-
-    hand = stock.giveCards();
-    hand.forEach(enemyHand.acquireCard);
+    startGame();
   }
 
   void onCardTap(Card card) {
@@ -117,22 +117,21 @@ class TrumpGame extends FlameGame with HasTappableComponents {
   void play(Card card) async {
     lockMoves = true;
     print('You played ${card.toString()}');
-    Card firstPlay = card;
-    Card secondPlay = card;
-    if (!playerTurn) {
-      firstPlay = plays.cards.first;
-    }
-
     playerHand.removeCard(card);
     plays.acquireCard(card);
-
     await sleep();
+
+    Card firstPlay;
+    Card secondPlay;
     if (playerTurn) {
+      firstPlay = card;
       secondPlay = enemyHand.aiPlay(card, trump);
       plays.acquireCard(secondPlay);
+      await sleep();
+    } else {
+      firstPlay = plays.cards.first;
+      secondPlay = card;
     }
-    await sleep();
-
     plays.clearCards();
 
     if (playerTurn == firstWin(firstPlay, secondPlay)) {
