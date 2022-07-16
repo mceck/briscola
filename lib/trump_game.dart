@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'dart:ui';
 
 import 'package:briscola/components/card.dart';
@@ -33,9 +34,10 @@ class TrumpGame extends FlameGame with HasTappableComponents {
   late final Suit trump;
 
   bool lockMoves = false;
+  bool playerTurn = true;
 
   @override
-  Color backgroundColor() => const Color(0xFFFFFFFF);
+  Color backgroundColor() => Color.fromARGB(255, 37, 40, 59);
 
   @override
   Future<void> onLoad() async {
@@ -85,6 +87,12 @@ class TrumpGame extends FlameGame with HasTappableComponents {
 
     hand = stock.giveCards();
     hand.forEach(enemyHand.acquireCard);
+
+    playerTurn = Random().nextBool();
+    if (!playerTurn) {
+      final enemyPlay = enemyHand.aiPlay();
+      plays.acquireCard(enemyPlay);
+    }
   }
 
   void resetGame() {
@@ -108,20 +116,30 @@ class TrumpGame extends FlameGame with HasTappableComponents {
 
   void play(Card card) async {
     lockMoves = true;
+    print('You played ${card.toString()}');
+    Card firstPlay = card;
+    Card secondPlay = card;
+    if (!playerTurn) {
+      firstPlay = plays.cards.first;
+    }
+
     playerHand.removeCard(card);
     plays.acquireCard(card);
 
     await sleep();
-
-    final enemyPlay = enemyHand.aiPlay();
-    plays.acquireCard(enemyPlay);
-
+    if (playerTurn) {
+      secondPlay = enemyHand.aiPlay(card, trump);
+      plays.acquireCard(secondPlay);
+    }
     await sleep();
 
-    final playerWin = isPlayerWin(card, enemyPlay);
-    if (playerWin) {
-      playerPoints.acquireCard(card);
-      playerPoints.acquireCard(enemyPlay);
+    plays.clearCards();
+
+    if (playerTurn == firstWin(firstPlay, secondPlay)) {
+      print('You took points');
+      playerTurn = true;
+      playerPoints.acquireCard(firstPlay);
+      playerPoints.acquireCard(secondPlay);
       try {
         playerHand.acquireCard(stock.giveCard());
         enemyHand.acquireCard(stock.giveCard());
@@ -129,34 +147,44 @@ class TrumpGame extends FlameGame with HasTappableComponents {
         // EMPTY STOCK
       }
     } else {
-      enemyPoints.acquireCard(card);
-      enemyPoints.acquireCard(enemyPlay);
+      print('Enemy took points');
+      playerTurn = false;
+      enemyPoints.acquireCard(firstPlay);
+      enemyPoints.acquireCard(secondPlay);
       try {
         enemyHand.acquireCard(stock.giveCard());
         playerHand.acquireCard(stock.giveCard());
       } catch (e) {
         // EMPTY STOCK
       }
+      if (!enemyHand.empty) {
+        await sleep();
+        final enemyPlay = enemyHand.aiPlay();
+        plays.acquireCard(enemyPlay);
+      }
     }
-    plays.clearCards();
     if (playerHand.empty) {
       final who = playerPoints.points > enemyPoints.points ? "YOU" : "ENEMY";
       print(
-          "GAME ENDS player: ${playerPoints.points} enemy: ${enemyPoints.points} $who WINS");
+          "GAME ENDS player: ${playerPoints.points} enemy: ${enemyPoints.points}");
+      print("$who WINS");
       await sleep();
       resetGame();
     }
     lockMoves = false;
   }
 
-  bool isPlayerWin(Card player, Card enemy) {
-    if (player.suit == trump && enemy.suit != trump) {
+  bool firstWin(Card first, Card second) {
+    if (first.suit == trump && second.suit != trump) {
       return true;
     }
-    if (enemy.suit == trump && player.suit != trump) {
+    if (second.suit == trump && first.suit != trump) {
       return false;
     }
-    return player.rank.points > enemy.rank.points;
+    if (first.suit != second.suit) {
+      return true;
+    }
+    return first.rank.points > second.rank.points;
   }
 
   Future<void> sleep([Duration time = const Duration(milliseconds: 500)]) =>
