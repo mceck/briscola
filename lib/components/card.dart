@@ -58,6 +58,7 @@ class Card extends PositionComponent with TapCallbacks, HasGameRef<TrumpGame> {
   final Rank rank;
   final Suit suit;
   bool _faceUp;
+  Vector2 newPosition = Vector2(0, 0);
 
   Card(int intRank, int intSuit)
       : rank = Rank.fromInt(intRank),
@@ -77,6 +78,16 @@ class Card extends PositionComponent with TapCallbacks, HasGameRef<TrumpGame> {
       _renderFront(canvas);
     } else {
       _renderBack(canvas);
+    }
+  }
+
+  @override
+  void update(double dt) {
+    if (position.x != newPosition.x || position.y != newPosition.y) {
+      final xGap = newPosition.x - position.x;
+      final yGap = newPosition.y - position.y;
+      double velocity = 6.0 * dt;
+      position.add(Vector2(xGap * velocity, yGap * velocity));
     }
   }
 

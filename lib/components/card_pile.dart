@@ -8,7 +8,7 @@ class CardPile extends PositionComponent {
   CardPile({super.position}) : super(size: TrumpGame.cardSize);
 
   void acquireCard(Card card) {
-    card.position = position;
+    card.newPosition = position.clone();
     card.priority = cards.length;
     cards.add(card);
   }

@@ -25,8 +25,8 @@ class EnemyHand extends CardPile {
   void _spreadPile() {
     final n = cards.length;
     for (var i = 0; i < n; i++) {
-      cards[i].position = position;
-      cards[i].position.addScaled(_scaledPosition, i.toDouble());
+      cards[i].newPosition = position.clone()
+        ..addScaled(_scaledPosition, i.toDouble());
     }
   }
 

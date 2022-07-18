@@ -69,12 +69,6 @@ class TrumpGame extends FlameGame with HasTappableComponents {
 
     final world = World()
       ..addAll(cardSet)
-      ..add(stock)
-      ..add(playerHand)
-      ..add(enemyHand)
-      ..add(playerPoints)
-      ..add(enemyPoints)
-      ..add(plays)
       ..add(score);
     add(world);
 
@@ -100,7 +94,7 @@ class TrumpGame extends FlameGame with HasTappableComponents {
     playerTurn = Random().nextBool();
     if (!playerTurn) {
       final enemyPlay = enemyHand.aiPlay();
-      animatePlay(enemyPlay, true).then((_) => plays.acquireCard(enemyPlay));
+      plays.acquireCard(enemyPlay);
     }
   }
 
@@ -122,7 +116,6 @@ class TrumpGame extends FlameGame with HasTappableComponents {
 
   void play(Card card) async {
     lockMoves = true;
-    await animatePlay(card, playerTurn);
     print('You played ${card.toString()}');
     playerHand.removeCard(card);
     plays.acquireCard(card);
@@ -133,7 +126,6 @@ class TrumpGame extends FlameGame with HasTappableComponents {
     if (playerTurn) {
       firstPlay = card;
       secondPlay = enemyHand.aiPlay(card, trump);
-      await animatePlay(secondPlay, false);
       plays.acquireCard(secondPlay);
       await sleep();
     } else {
@@ -143,42 +135,33 @@ class TrumpGame extends FlameGame with HasTappableComponents {
 
     if (playerTurn == firstWin(firstPlay, secondPlay)) {
       print('You took points');
-      await animatePoints(playerPoints);
       plays.clearCards();
       playerTurn = true;
       playerPoints.acquireCard(firstPlay);
       playerPoints.acquireCard(secondPlay);
+      await sleep();
       try {
-        Card c = stock.giveCard();
-        await animatePick(c, playerHand);
-        playerHand.acquireCard(c);
-        c = stock.giveCard();
-        await animatePick(c, enemyHand);
-        enemyHand.acquireCard(c);
+        playerHand.acquireCard(stock.giveCard());
+        enemyHand.acquireCard(stock.giveCard());
       } catch (e) {
         // EMPTY STOCK
       }
     } else {
       print('Enemy took points');
-      await animatePoints(enemyPoints);
       plays.clearCards();
       playerTurn = false;
       enemyPoints.acquireCard(firstPlay);
       enemyPoints.acquireCard(secondPlay);
+      await sleep();
       try {
-        Card c = stock.giveCard();
-        await animatePick(c, enemyHand);
-        enemyHand.acquireCard(c);
-        c = stock.giveCard();
-        await animatePick(c, playerHand);
-        playerHand.acquireCard(c);
+        enemyHand.acquireCard(stock.giveCard());
+        playerHand.acquireCard(stock.giveCard());
       } catch (e) {
         // EMPTY STOCK
       }
       if (!enemyHand.empty) {
         await sleep();
         final enemyPlay = enemyHand.aiPlay();
-        await animatePlay(enemyPlay, true);
 
         plays.acquireCard(enemyPlay);
       }
@@ -186,7 +169,7 @@ class TrumpGame extends FlameGame with HasTappableComponents {
     if (playerHand.empty) {
       final who = playerPoints.points > enemyPoints.points ? "YOU" : "ENEMY";
       score.show(
-          ' GAME ENDS \n player: ${playerPoints.points} \n enemy: ${enemyPoints.points} \n $who WINS ');
+          ' $who WIN \n YOUR POINTS: ${playerPoints.points} \n ENEMY POINTS: ${enemyPoints.points} ');
 
       await sleep(const Duration(seconds: 5));
       score.hide();
@@ -206,44 +189,6 @@ class TrumpGame extends FlameGame with HasTappableComponents {
       return true;
     }
     return first.rank.points > second.rank.points;
-  }
-
-  Future<void> animatePoints(PositionComponent target) async {
-    for (var c in plays.cards) {
-      c.flip();
-    }
-    final xGap = target.position.x - plays.cards[0].position.x;
-    final yGap = target.position.y - plays.cards[0].position.y;
-
-    for (int i = 0; i < 40; i++) {
-      plays.cards[0].position.add(Vector2(xGap / 40, yGap / 40));
-      plays.cards[1].position
-          .add(Vector2((xGap - cardWidth - cardGap) / 40, yGap / 40));
-      await sleep(const Duration(milliseconds: 5));
-    }
-  }
-
-  Future<void> animatePlay(Card c, bool first) async {
-    if (!c.isFaceUp) {
-      c.flip();
-    }
-    final xGap =
-        (first ? plays.position.x : plays.position.x + cardGap + cardWidth) -
-            c.position.x;
-    final yGap = plays.position.y - c.position.y;
-    for (int i = 0; i < 40; i++) {
-      c.position.add(Vector2(xGap / 40, yGap / 40));
-      await sleep(const Duration(milliseconds: 5));
-    }
-  }
-
-  Future<void> animatePick(Card c, PositionComponent target) async {
-    final xGap = target.position.x - c.position.x;
-    final yGap = target.position.y - c.position.y;
-    for (int i = 0; i < 40; i++) {
-      c.position.add(Vector2(xGap / 40, yGap / 40));
-      await sleep(const Duration(milliseconds: 5));
-    }
   }
 
   Future<void> sleep([Duration time = const Duration(milliseconds: 500)]) =>

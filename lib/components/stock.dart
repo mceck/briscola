@@ -19,14 +19,14 @@ class Stock extends CardPile {
   void _spreadPile() {
     final n = cards.length;
     for (var i = 0; i < n; i++) {
-      cards[i].position = position;
+      cards[i].newPosition = position.clone();
       if (i == 0) {
         if (!cards[i].isFaceUp) {
           cards[i].flip();
         }
-        cards[i].position.add(Vector2(TrumpGame.cardWidth, 0));
+        cards[i].newPosition.add(Vector2(TrumpGame.cardWidth, 0));
       }
-      cards[i].position.addScaled(_scaledPosition, i.toDouble());
+      cards[i].newPosition.addScaled(_scaledPosition, i.toDouble());
     }
   }
 
