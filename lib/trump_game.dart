@@ -6,6 +6,7 @@ import 'package:briscola/components/enemy_hand.dart';
 import 'package:briscola/components/player_hand.dart';
 import 'package:briscola/components/plays.dart';
 import 'package:briscola/components/stock.dart';
+import 'package:briscola/components/text.dart';
 import 'package:briscola/models/suit.dart';
 import 'package:flame/components.dart';
 import 'package:flame/experimental.dart';
@@ -29,6 +30,8 @@ class TrumpGame extends FlameGame with HasTappableComponents {
   late final PointPile enemyPoints;
 
   late final Plays plays;
+
+  late final ScoreText score;
 
   late final Suit trump;
 
@@ -62,6 +65,8 @@ class TrumpGame extends FlameGame with HasTappableComponents {
     plays = Plays(
         position: Vector2(cardGap + 3.5 * cardWidth, cardGap + 2 * cardHeight));
 
+    score = ScoreText(position: Vector2(cardGap, cardGap + cardHeight / 2));
+
     final world = World()
       ..addAll(cardSet)
       ..add(stock)
@@ -69,7 +74,8 @@ class TrumpGame extends FlameGame with HasTappableComponents {
       ..add(enemyHand)
       ..add(playerPoints)
       ..add(enemyPoints)
-      ..add(plays);
+      ..add(plays)
+      ..add(score);
     add(world);
 
     final camera = CameraComponent(world: world)
@@ -94,7 +100,7 @@ class TrumpGame extends FlameGame with HasTappableComponents {
     playerTurn = Random().nextBool();
     if (!playerTurn) {
       final enemyPlay = enemyHand.aiPlay();
-      plays.acquireCard(enemyPlay);
+      animatePlay(enemyPlay, true).then((_) => plays.acquireCard(enemyPlay));
     }
   }
 
@@ -116,6 +122,7 @@ class TrumpGame extends FlameGame with HasTappableComponents {
 
   void play(Card card) async {
     lockMoves = true;
+    await animatePlay(card, playerTurn);
     print('You played ${card.toString()}');
     playerHand.removeCard(card);
     plays.acquireCard(card);
@@ -126,48 +133,63 @@ class TrumpGame extends FlameGame with HasTappableComponents {
     if (playerTurn) {
       firstPlay = card;
       secondPlay = enemyHand.aiPlay(card, trump);
+      await animatePlay(secondPlay, false);
       plays.acquireCard(secondPlay);
       await sleep();
     } else {
       firstPlay = plays.cards.first;
       secondPlay = card;
     }
-    plays.clearCards();
 
     if (playerTurn == firstWin(firstPlay, secondPlay)) {
       print('You took points');
+      await animatePoints(playerPoints);
+      plays.clearCards();
       playerTurn = true;
       playerPoints.acquireCard(firstPlay);
       playerPoints.acquireCard(secondPlay);
       try {
-        playerHand.acquireCard(stock.giveCard());
-        enemyHand.acquireCard(stock.giveCard());
+        Card c = stock.giveCard();
+        await animatePick(c, playerHand);
+        playerHand.acquireCard(c);
+        c = stock.giveCard();
+        await animatePick(c, enemyHand);
+        enemyHand.acquireCard(c);
       } catch (e) {
         // EMPTY STOCK
       }
     } else {
       print('Enemy took points');
+      await animatePoints(enemyPoints);
+      plays.clearCards();
       playerTurn = false;
       enemyPoints.acquireCard(firstPlay);
       enemyPoints.acquireCard(secondPlay);
       try {
-        enemyHand.acquireCard(stock.giveCard());
-        playerHand.acquireCard(stock.giveCard());
+        Card c = stock.giveCard();
+        await animatePick(c, enemyHand);
+        enemyHand.acquireCard(c);
+        c = stock.giveCard();
+        await animatePick(c, playerHand);
+        playerHand.acquireCard(c);
       } catch (e) {
         // EMPTY STOCK
       }
       if (!enemyHand.empty) {
         await sleep();
         final enemyPlay = enemyHand.aiPlay();
+        await animatePlay(enemyPlay, true);
+
         plays.acquireCard(enemyPlay);
       }
     }
     if (playerHand.empty) {
       final who = playerPoints.points > enemyPoints.points ? "YOU" : "ENEMY";
-      print(
-          "GAME ENDS player: ${playerPoints.points} enemy: ${enemyPoints.points}");
-      print("$who WINS");
-      await sleep();
+      score.show(
+          ' GAME ENDS \n player: ${playerPoints.points} \n enemy: ${enemyPoints.points} \n $who WINS ');
+
+      await sleep(const Duration(seconds: 5));
+      score.hide();
       resetGame();
     }
     lockMoves = false;
@@ -184,6 +206,44 @@ class TrumpGame extends FlameGame with HasTappableComponents {
       return true;
     }
     return first.rank.points > second.rank.points;
+  }
+
+  Future<void> animatePoints(PositionComponent target) async {
+    for (var c in plays.cards) {
+      c.flip();
+    }
+    final xGap = target.position.x - plays.cards[0].position.x;
+    final yGap = target.position.y - plays.cards[0].position.y;
+
+    for (int i = 0; i < 40; i++) {
+      plays.cards[0].position.add(Vector2(xGap / 40, yGap / 40));
+      plays.cards[1].position
+          .add(Vector2((xGap - cardWidth - cardGap) / 40, yGap / 40));
+      await sleep(const Duration(milliseconds: 5));
+    }
+  }
+
+  Future<void> animatePlay(Card c, bool first) async {
+    if (!c.isFaceUp) {
+      c.flip();
+    }
+    final xGap =
+        (first ? plays.position.x : plays.position.x + cardGap + cardWidth) -
+            c.position.x;
+    final yGap = plays.position.y - c.position.y;
+    for (int i = 0; i < 40; i++) {
+      c.position.add(Vector2(xGap / 40, yGap / 40));
+      await sleep(const Duration(milliseconds: 5));
+    }
+  }
+
+  Future<void> animatePick(Card c, PositionComponent target) async {
+    final xGap = target.position.x - c.position.x;
+    final yGap = target.position.y - c.position.y;
+    for (int i = 0; i < 40; i++) {
+      c.position.add(Vector2(xGap / 40, yGap / 40));
+      await sleep(const Duration(milliseconds: 5));
+    }
   }
 
   Future<void> sleep([Duration time = const Duration(milliseconds: 500)]) =>
